@@ -9,7 +9,8 @@ import Foundation
 import Combine
 
 protocol ProductRepositoryProtocol {
-    func search(query: String, siteId: String) -> AnyPublisher<[Product], NetworkError>
+    func authenticate() -> AnyPublisher<String, NetworkError>
+    func search(query: String, siteId: String, token: String) -> AnyPublisher<[Product], NetworkError>
     func getDetail(id: String) -> AnyPublisher<ProductDetail, NetworkError>
     func getDescription(id: String) -> AnyPublisher<String?, NetworkError>
 }
