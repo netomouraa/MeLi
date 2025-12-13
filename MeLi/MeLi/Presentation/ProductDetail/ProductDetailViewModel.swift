@@ -8,8 +8,25 @@
 import Foundation
 import Combine
 
+enum NetworkError: Error {
+    case invalidURL
+    case network(Error)
+    case decodingError
+    case custom(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "URL inválida."
+        case .network(let error): return "Erro de rede: \(error.localizedDescription)"
+        case .decodingError: return "Erro ao decodificar a resposta do servidor."
+        case .custom(let message): return message
+        }
+    }
+}
+
 final class ProductDetailViewModel: ObservableObject {
-    @Published var detail: ProductDetail?
+    @Published var catalogDetail: ProductCatalogDetail?
+    @Published var itemDetail: ProductDetail?
     @Published var description: String?
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -26,7 +43,8 @@ final class ProductDetailViewModel: ObservableObject {
         errorMessage = nil
         
         Publishers.Zip(
-            repository.getDetail(id: id),
+            repository.getCatalogDetail(id: id),
+//            repository.getDetail(id: id), // Assumindo que este busca o preço/condição
             repository.getDescription(id: id)
         )
         .receive(on: DispatchQueue.main)
@@ -35,11 +53,10 @@ final class ProductDetailViewModel: ObservableObject {
             if case .failure(let error) = completion {
                 self?.errorMessage = error.errorDescription
             }
-        } receiveValue: { [weak self] detail, description in
-            self?.detail = detail
+        } receiveValue: { [weak self] catalogDetail, description in
+            self?.catalogDetail = catalogDetail
             self?.description = description
         }
         .store(in: &cancellables)
     }
 }
-

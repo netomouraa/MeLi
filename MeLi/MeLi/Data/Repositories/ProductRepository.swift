@@ -12,12 +12,14 @@ final class ProductRepository: ProductRepositoryProtocol {
     private let baseURL = "https://api.mercadolibre.com"
     
     private let clientId = "2837149663470888"
-    private let clientSecret = "gNEtpCyGP64pIlTYZHMDhhiWb1hVndWr"
+    private let clientSecret = "gNEtpCyGP64pllTYZHMDhhIWb1hVndWr"
     private let refreshToken = "TG-69323f7d4149ba000132312b-3035918550"
     
-    // MARK: - Authentication
     func authenticate() -> AnyPublisher<String, NetworkError> {
+        Logger.logInfo("🔐 Iniciando autenticación...")
+        
         guard let url = URL(string: "\(baseURL)/oauth/token") else {
+            Logger.logError("URL inválida para autenticación")
             return Fail(error: .invalidURL).eraseToAnyPublisher()
         }
         
@@ -38,61 +40,167 @@ final class ProductRepository: ProductRepositoryProtocol {
         
         request.httpBody = bodyString.data(using: .utf8)
         
+        Logger.logRequest(request)
+        
         return URLSession.shared.dataTaskPublisher(for: request)
-            .mapError { NetworkError.network($0) }
+            .handleEvents(
+                receiveOutput: { data, response in
+                    Logger.logResponse(response, data: data, error: nil)
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        Logger.logResponse(nil, data: nil, error: error)
+                    }
+                }
+            )
+            .mapError { error in
+                Logger.logError("Network error en autenticación: \(error.localizedDescription)")
+                return NetworkError.network(error)
+            }
             .map(\.data)
             .decode(type: AuthToken.self, decoder: JSONDecoder())
-            .mapError { _ in NetworkError.decodingError }
-            .map { $0.accessToken }
+            .mapError { error in
+                Logger.logError("Decoding error en autenticación: \(error.localizedDescription)")
+                return NetworkError.decodingError
+            }
+            .map { authToken in
+                Logger.logSuccess("Token obtenido: \(authToken.accessToken.prefix(30))...")
+                return authToken.accessToken
+            }
             .eraseToAnyPublisher()
     }
     
-    // MARK: - Search with Authentication
-    func search(query: String, siteId: String, token: String) -> AnyPublisher<[Product], NetworkError> {
-        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "\(baseURL)/sites/\(siteId)/search?q=\(encodedQuery)") else {
+        func search(query: String, siteId: String, token: String) -> AnyPublisher<SearchResponse, NetworkError> {
+
+            Logger.logInfo("🔍 Buscando productos: '\(query)' en sitio: \(siteId)")
+
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            Logger.logError("Error al codificar query")
+            return Fail(error: .invalidURL).eraseToAnyPublisher()
+        }
+        
+        var components = URLComponents(string: "\(baseURL)/products/search")
+        components?.queryItems = [
+            URLQueryItem(name: "site_id", value: siteId),
+            URLQueryItem(name: "q", value: encodedQuery)
+        ]
+        
+        guard let url = components?.url else {
+            Logger.logError("URL inválida para búsqueda")
             return Fail(error: .invalidURL).eraseToAnyPublisher()
         }
         
         var request = URLRequest(url: url)
+        request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
+        Logger.logRequest(request)
+        
         return URLSession.shared.dataTaskPublisher(for: request)
-            .mapError { NetworkError.network($0) }
+            .handleEvents(
+                receiveOutput: { data, response in
+                    Logger.logResponse(response, data: data, error: nil)
+                },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        Logger.logResponse(nil, data: nil, error: error)
+                    }
+                }
+            )
+            .mapError { error in
+                Logger.logError("Network error en búsqueda: \(error.localizedDescription)")
+                return NetworkError.network(error)
+            }
             .map(\.data)
             .decode(type: SearchResponse.self, decoder: JSONDecoder())
-            .mapError { _ in NetworkError.decodingError }
-            .map(\.results)
+            .mapError { error in
+                Logger.logError("Decoding error en búsqueda: \(error.localizedDescription)")
+                return NetworkError.decodingError
+            }
+            .handleEvents(receiveOutput: { response in
+                Logger.logSuccess("Búsqueda completada: \(response.results.count) productos encontrados")
+
+            })
             .eraseToAnyPublisher()
     }
     
-    func getDetail(id: String) -> AnyPublisher<ProductDetail, NetworkError> {
+
+    func getCatalogDetail(id: String) -> AnyPublisher<ProductCatalogDetail, NetworkError> {
+        Logger.logInfo("📦 Buscando detalhes do catálogo para ID: \(id)")
+        
+        guard let url = URL(string: "\(baseURL)/products/\(id)") else {
+            Logger.logError("URL inválida para detalhes do catálogo")
+            return Fail(error: .invalidURL).eraseToAnyPublisher()
+        }
+        
+        var request = URLRequest(url: url)
+        // request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        Logger.logRequest(request)
+        
+        return URLSession.shared.dataTaskPublisher(for: request)
+            .mapError { error in
+                Logger.logError("Network error em getCatalogDetail: \(error.localizedDescription)")
+                return NetworkError.network(error)
+            }
+            .map(\.data)
+            .decode(type: ProductCatalogDetail.self, decoder: JSONDecoder())
+            .mapError { error in
+                Logger.logError("Decoding error em getCatalogDetail: \(error.localizedDescription)")
+                return NetworkError.decodingError
+            }
+            .eraseToAnyPublisher()
+    }
+
+    func getItemDetail(id: String) -> AnyPublisher<ProductDetail, NetworkError> {
+        Logger.logInfo("💰 Buscando detalhes do item para ID: \(id)")
+        
         guard let url = URL(string: "\(baseURL)/items/\(id)") else {
+            Logger.logError("URL inválida para detalhes do item")
             return Fail(error: .invalidURL).eraseToAnyPublisher()
         }
         
         return URLSession.shared.dataTaskPublisher(for: url)
-            .mapError { NetworkError.network($0) }
+            .mapError { error in
+                Logger.logError("Network error em getItemDetail: \(error.localizedDescription)")
+                return NetworkError.network(error)
+            }
             .map(\.data)
             .decode(type: ProductDetail.self, decoder: JSONDecoder())
-            .mapError { _ in NetworkError.decodingError }
+            .mapError { error in
+                Logger.logError("Decoding error em getItemDetail: \(error.localizedDescription)")
+                return NetworkError.decodingError
+            }
             .eraseToAnyPublisher()
     }
-    
+ 
     func getDescription(id: String) -> AnyPublisher<String?, NetworkError> {
+        Logger.logInfo("📝 Buscando descrição para ID: \(id)")
+        
         guard let url = URL(string: "\(baseURL)/items/\(id)/description") else {
+            Logger.logError("URL inválida para descrição")
             return Fail(error: .invalidURL).eraseToAnyPublisher()
         }
         
         return URLSession.shared.dataTaskPublisher(for: url)
-            .mapError { NetworkError.network($0) }
+            .mapError { error in
+                Logger.logError("Network error em getDescription: \(error.localizedDescription)")
+                return NetworkError.network(error)
+            }
             .map(\.data)
             .decode(type: ProductDescription.self, decoder: JSONDecoder())
             .map { $0.plainText }
-            .catch { _ in Just(nil).setFailureType(to: NetworkError.self) }
+            .catch { error -> AnyPublisher<String?, NetworkError> in
+                Logger.logWarning("Descrição não encontrada ou erro de decodificação. Retornando nil. Erro: \(error.localizedDescription)")
+                return Just(nil).setFailureType(to: NetworkError.self).eraseToAnyPublisher()
+            }
             .eraseToAnyPublisher()
     }
 }
+
+
+
+
 
 
 
