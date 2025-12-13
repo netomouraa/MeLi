@@ -59,17 +59,18 @@ final class SearchViewModel: ObservableObject {
         
         isLoading = true
         errorMessage = nil
-        
-        repository.search(query: query, siteId: "MLA", token: token)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] completion in
-                self?.isLoading = false
-                if case .failure(let error) = completion {
-                    self?.errorMessage = error.errorDescription
-                }
-            } receiveValue: { [weak self] products in
-                self?.products = products
-            }
-            .store(in: &cancellables)
+    }
+    
+    // MARK: - Public Methods
+    func refreshSearch() {
+        if !searchText.isEmpty && searchText.count >= 3 {
+            performSearch(query: searchText)
+        }
+    }
+    
+    func clearResults() {
+        products = []
+        searchText = ""
+        errorMessage = nil
     }
 }
