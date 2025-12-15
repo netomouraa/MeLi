@@ -1,26 +1,25 @@
 //
-//  ErrorView.swift
+//  EmptyStateView.swift
 //  MeLi
 //
-//  Created by Neto Moura on 08/12/25.
+//  Created by Neto Moura on 09/12/25.
 //
 
 import SwiftUI
 
-struct ErrorView: View {
-    let message: String
-    
+// MARK: - Empty State View
+struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle.fill")
+            Image(systemName: "magnifyingglass")
                 .font(.system(size: 60))
-                .foregroundColor(.red)
+                .foregroundColor(.gray)
             
-            Text("Ocurrió un Error")
-                .font(.title2)
+            Text("No se encontraron productos")
+                .font(.headline)
                 .foregroundColor(.primary)
             
-            Text(message)
+            Text("Intenta buscar con otras palabras clave")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

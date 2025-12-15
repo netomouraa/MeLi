@@ -1,0 +1,16 @@
+//
+//  StatusFilterView.swift
+//  MeLi
+//
+//  Created by Neto Moura on 15/12/25.
+//
+
+import SwiftUI
+
+struct StatusFilterView: View {
+    @Binding var selectedStatus: ProductStatus
+    var body: some View {
+        Text("Filtro: \(selectedStatus.rawValue.capitalized)")
+            .font(.caption)
+    }
+}
