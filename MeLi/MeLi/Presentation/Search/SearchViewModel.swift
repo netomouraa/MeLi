@@ -13,30 +13,17 @@ final class SearchViewModel: ObservableObject {
     @Published var products: [Product] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var selectedStatus: ProductStatus = .active
     
     private let repository: ProductRepositoryProtocol
+    private let authManager: AuthenticationManager
     private var cancellables = Set<AnyCancellable>()
-    private var accessToken: String?
     
-    init(repository: ProductRepositoryProtocol = ProductRepository()) {
+    init(repository: ProductRepositoryProtocol = ProductRepository(),
+         authManager: AuthenticationManager = .shared) {
         self.repository = repository
+        self.authManager = authManager
         setupSearch()
-        authenticateOnInit()
-    }
-    
-    // MARK: - Authenticate on App Start
-    private func authenticateOnInit() {
-        repository.authenticate()
-            .sink { [weak self] completion in
-                if case .failure(let error) = completion {
-                    print("⚠️ Auth error: \(error.localizedDescription)")
-                    self?.errorMessage = "Error de autenticación. Verifica las credenciales."
-                }
-            } receiveValue: { [weak self] token in
-                print("✅ Token obtenido: \(token.prefix(20))...")
-                self?.accessToken = token
-            }
-            .store(in: &cancellables)
     }
     
     private func setupSearch() {
@@ -51,14 +38,26 @@ final class SearchViewModel: ObservableObject {
     }
     
     private func performSearch(query: String) {
-        guard let token = accessToken else {
+        guard let token = authManager.getToken() else {
             errorMessage = "Autenticando... Intenta de nuevo en un momento."
-            authenticateOnInit()
+            authManager.authenticate()
             return
         }
         
         isLoading = true
         errorMessage = nil
+        
+        repository.search(query: query, siteId: "MLA", status: selectedStatus, token: token)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                self?.isLoading = false
+                if case .failure(let error) = completion {
+                    self?.errorMessage = error.errorDescription
+                }
+            } receiveValue: { [weak self] response in
+                self?.products = response.results
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Public Methods
@@ -73,4 +72,14 @@ final class SearchViewModel: ObservableObject {
         searchText = ""
         errorMessage = nil
     }
+    
+    func changeStatus(_ status: ProductStatus) {
+        selectedStatus = status
+        if !searchText.isEmpty && searchText.count >= 3 {
+            performSearch(query: searchText)
+        }
+    }
 }
+
+
+

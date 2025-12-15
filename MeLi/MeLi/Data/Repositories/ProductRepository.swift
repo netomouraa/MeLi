@@ -8,6 +8,16 @@
 import Foundation
 import Combine
 
+// MARK: - Product Status
+enum ProductStatus: String {
+    case active = "active"
+    case paused = "paused"
+    case closed = "closed"
+    case underReview = "under_review"
+    case inactive = "inactive"
+}
+
+// MARK: - Product Repository
 final class ProductRepository: ProductRepositoryProtocol {
     private let baseURL = "https://api.mercadolibre.com"
     
@@ -15,6 +25,7 @@ final class ProductRepository: ProductRepositoryProtocol {
     private let clientSecret = "gNEtpCyGP64pllTYZHMDhhIWb1hVndWr"
     private let refreshToken = "TG-69323f7d4149ba000132312b-3035918550"
     
+    // MARK: - 1. Authentication
     func authenticate() -> AnyPublisher<String, NetworkError> {
         Logger.logInfo("🔐 Iniciando autenticación...")
         
@@ -70,10 +81,10 @@ final class ProductRepository: ProductRepositoryProtocol {
             .eraseToAnyPublisher()
     }
     
-        func search(query: String, siteId: String, token: String) -> AnyPublisher<SearchResponse, NetworkError> {
-
-            Logger.logInfo("🔍 Buscando productos: '\(query)' en sitio: \(siteId)")
-
+    // MARK: - 2. Search (/products/search)
+    func search(query: String, siteId: String, status: ProductStatus = .active, token: String) -> AnyPublisher<SearchResponse, NetworkError> {
+        Logger.logInfo("🔍 Buscando productos: '\(query)' en sitio: \(siteId) com status: \(status.rawValue)")
+        
         guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             Logger.logError("Error al codificar query")
             return Fail(error: .invalidURL).eraseToAnyPublisher()
@@ -81,6 +92,7 @@ final class ProductRepository: ProductRepositoryProtocol {
         
         var components = URLComponents(string: "\(baseURL)/products/search")
         components?.queryItems = [
+            URLQueryItem(name: "status", value: status.rawValue), // Adicionado o status
             URLQueryItem(name: "site_id", value: siteId),
             URLQueryItem(name: "q", value: encodedQuery)
         ]
@@ -119,14 +131,13 @@ final class ProductRepository: ProductRepositoryProtocol {
             }
             .handleEvents(receiveOutput: { response in
                 Logger.logSuccess("Búsqueda completada: \(response.results.count) productos encontrados")
-
             })
             .eraseToAnyPublisher()
     }
     
-
-    func getCatalogDetail(id: String) -> AnyPublisher<ProductCatalogDetail, NetworkError> {
-        Logger.logInfo("📦 Buscando detalhes do catálogo para ID: \(id)")
+    // MARK: - 3. Get Catalog Detail (/products/{id})
+    func getCatalogDetail(id: String, token: String) -> AnyPublisher<ProductCatalogDetail, NetworkError> {
+        Logger.logInfo("📦 Buscando detalhes do catálogo para ID: \(id) com token.")
         
         guard let url = URL(string: "\(baseURL)/products/\(id)") else {
             Logger.logError("URL inválida para detalhes do catálogo")
@@ -134,7 +145,8 @@ final class ProductRepository: ProductRepositoryProtocol {
         }
         
         var request = URLRequest(url: url)
-        // request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         Logger.logRequest(request)
         
@@ -151,120 +163,5 @@ final class ProductRepository: ProductRepositoryProtocol {
             }
             .eraseToAnyPublisher()
     }
-
-    func getItemDetail(id: String) -> AnyPublisher<ProductDetail, NetworkError> {
-        Logger.logInfo("💰 Buscando detalhes do item para ID: \(id)")
-        
-        guard let url = URL(string: "\(baseURL)/items/\(id)") else {
-            Logger.logError("URL inválida para detalhes do item")
-            return Fail(error: .invalidURL).eraseToAnyPublisher()
-        }
-        
-        return URLSession.shared.dataTaskPublisher(for: url)
-            .mapError { error in
-                Logger.logError("Network error em getItemDetail: \(error.localizedDescription)")
-                return NetworkError.network(error)
-            }
-            .map(\.data)
-            .decode(type: ProductDetail.self, decoder: JSONDecoder())
-            .mapError { error in
-                Logger.logError("Decoding error em getItemDetail: \(error.localizedDescription)")
-                return NetworkError.decodingError
-            }
-            .eraseToAnyPublisher()
-    }
- 
-    func getDescription(id: String) -> AnyPublisher<String?, NetworkError> {
-        Logger.logInfo("📝 Buscando descrição para ID: \(id)")
-        
-        guard let url = URL(string: "\(baseURL)/items/\(id)/description") else {
-            Logger.logError("URL inválida para descrição")
-            return Fail(error: .invalidURL).eraseToAnyPublisher()
-        }
-        
-        return URLSession.shared.dataTaskPublisher(for: url)
-            .mapError { error in
-                Logger.logError("Network error em getDescription: \(error.localizedDescription)")
-                return NetworkError.network(error)
-            }
-            .map(\.data)
-            .decode(type: ProductDescription.self, decoder: JSONDecoder())
-            .map { $0.plainText }
-            .catch { error -> AnyPublisher<String?, NetworkError> in
-                Logger.logWarning("Descrição não encontrada ou erro de decodificação. Retornando nil. Erro: \(error.localizedDescription)")
-                return Just(nil).setFailureType(to: NetworkError.self).eraseToAnyPublisher()
-            }
-            .eraseToAnyPublisher()
-    }
-}
-
-
-
-
-
-
-
-enum Logger {
-    static func logRequest(_ request: URLRequest) {
-        print("\n🔵 ===== REQUEST =====")
-        print("📍 URL: \(request.url?.absoluteString ?? "N/A")")
-        print("📝 Method: \(request.httpMethod ?? "N/A")")
-        
-        if let headers = request.allHTTPHeaderFields, !headers.isEmpty {
-            print("📋 Headers:")
-            headers.forEach { print("   \($0.key): \($0.value)") }
-        }
-        
-        if let body = request.httpBody, let bodyString = String(data: body, encoding: .utf8) {
-            print("📦 Body: \(bodyString)")
-        }
-        print("========================\n")
-    }
     
-    static func logResponse(_ response: URLResponse?, data: Data?, error: Error?) {
-        print("\n🟢 ===== RESPONSE =====")
-        
-        if let httpResponse = response as? HTTPURLResponse {
-            let statusEmoji = (200...299).contains(httpResponse.statusCode) ? "✅" : "❌"
-            print("\(statusEmoji) Status: \(httpResponse.statusCode)")
-            
-            if !httpResponse.allHeaderFields.isEmpty {
-                print("📋 Headers:")
-                httpResponse.allHeaderFields.forEach { print("   \($0.key): \($0.value)") }
-            }
-        }
-        
-        if let data = data {
-            print("📦 Data size: \(data.count) bytes")
-            if let json = try? JSONSerialization.jsonObject(with: data),
-               let prettyData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
-               let prettyString = String(data: prettyData, encoding: .utf8) {
-                print("📄 JSON Response:\n\(prettyString)")
-            } else if let rawString = String(data: data, encoding: .utf8) {
-                print("📄 Raw Response:\n\(rawString.prefix(500))")
-            }
-        }
-        
-        if let error = error {
-            print("❌ Error: \(error.localizedDescription)")
-        }
-        
-        print("========================\n")
-    }
-    
-    static func logInfo(_ message: String) {
-        print("ℹ️ INFO: \(message)")
-    }
-    
-    static func logSuccess(_ message: String) {
-        print("✅ SUCCESS: \(message)")
-    }
-    
-    static func logError(_ message: String) {
-        print("❌ ERROR: \(message)")
-    }
-    
-    static func logWarning(_ message: String) {
-        print("⚠️ WARNING: \(message)")
-    }
 }

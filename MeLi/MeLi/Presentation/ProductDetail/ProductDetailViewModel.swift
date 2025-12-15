@@ -8,55 +8,41 @@
 import Foundation
 import Combine
 
-enum NetworkError: Error {
-    case invalidURL
-    case network(Error)
-    case decodingError
-    case custom(String)
-    
-    var errorDescription: String? {
-        switch self {
-        case .invalidURL: return "URL inválida."
-        case .network(let error): return "Erro de rede: \(error.localizedDescription)"
-        case .decodingError: return "Erro ao decodificar a resposta do servidor."
-        case .custom(let message): return message
-        }
-    }
-}
-
 final class ProductDetailViewModel: ObservableObject {
     @Published var catalogDetail: ProductCatalogDetail?
-    @Published var itemDetail: ProductDetail?
-    @Published var description: String?
     @Published var isLoading = false
     @Published var errorMessage: String?
     
     private let repository: ProductRepositoryProtocol
+    private let authManager: AuthenticationManager
     private var cancellables = Set<AnyCancellable>()
     
-    init(repository: ProductRepositoryProtocol = ProductRepository()) {
+    init(repository: ProductRepositoryProtocol = ProductRepository(),
+         authManager: AuthenticationManager = .shared) {
         self.repository = repository
+        self.authManager = authManager
     }
     
     func loadProduct(id: String) {
+        guard let token = authManager.getToken() else {
+            errorMessage = "Token no disponible. Autenticando..."
+            authManager.authenticate()
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
-        Publishers.Zip(
-            repository.getCatalogDetail(id: id),
-//            repository.getDetail(id: id), // Assumindo que este busca o preço/condição
-            repository.getDescription(id: id)
-        )
-        .receive(on: DispatchQueue.main)
-        .sink { [weak self] completion in
-            self?.isLoading = false
-            if case .failure(let error) = completion {
-                self?.errorMessage = error.errorDescription
+        repository.getCatalogDetail(id: id, token: token)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                self?.isLoading = false
+                if case .failure(let error) = completion {
+                    self?.errorMessage = error.errorDescription
+                }
+            } receiveValue: { [weak self] catalogDetail in
+                self?.catalogDetail = catalogDetail
             }
-        } receiveValue: { [weak self] catalogDetail, description in
-            self?.catalogDetail = catalogDetail
-            self?.description = description
-        }
-        .store(in: &cancellables)
+            .store(in: &cancellables)
     }
 }
