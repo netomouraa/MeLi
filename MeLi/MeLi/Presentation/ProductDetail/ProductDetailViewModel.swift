@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 
+// MARK: - Product Detail View Model
 final class ProductDetailViewModel: ObservableObject {
     @Published var catalogDetail: ProductCatalogDetail?
     @Published var isLoading = false

@@ -92,7 +92,7 @@ final class ProductRepository: ProductRepositoryProtocol {
         
         var components = URLComponents(string: "\(baseURL)/products/search")
         components?.queryItems = [
-            URLQueryItem(name: "status", value: status.rawValue), // Adicionado o status
+            URLQueryItem(name: "status", value: status.rawValue),
             URLQueryItem(name: "site_id", value: siteId),
             URLQueryItem(name: "q", value: encodedQuery)
         ]

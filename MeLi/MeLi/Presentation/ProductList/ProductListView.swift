@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-// MARK: - ProductListView
+// MARK: - Product List View
 struct ProductListView: View {
     let products: [Product]
     

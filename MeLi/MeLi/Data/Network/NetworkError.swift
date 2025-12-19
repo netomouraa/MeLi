@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 
+// MARK: - Network Error
 enum NetworkError: Error {
     case invalidURL
     case network(Error)

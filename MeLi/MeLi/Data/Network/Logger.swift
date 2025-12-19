@@ -7,6 +7,7 @@
 
 import Foundation
 
+// MARK: - Logger
 class Logger {
     static func logRequest(_ request: URLRequest) {
         print("\n🔵 ===== REQUEST =====")

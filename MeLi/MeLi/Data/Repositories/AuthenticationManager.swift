@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 
+// MARK: - Authentication Manager
 final class AuthenticationManager: ObservableObject {
     @Published private(set) var accessToken: String?
     @Published private(set) var isAuthenticated = false

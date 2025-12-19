@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 
+// MARK: - Search View Model
 final class SearchViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var products: [Product] = []

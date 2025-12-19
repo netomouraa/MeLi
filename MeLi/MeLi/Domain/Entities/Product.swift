@@ -7,11 +7,7 @@
 
 import Foundation
 
-struct SearchResponse: Codable {
-    let keywords: String?
-    let results: [Product]
-}
-
+// MARK: - Product
 struct Product: Identifiable, Codable {
     let id: String
     let dateCreated: String?
@@ -47,6 +43,7 @@ struct Product: Identifiable, Codable {
   
 }
 
+// MARK: - Product Attribute
 struct ProductAttribute: Codable, Identifiable {
     let id: String
     let name: String

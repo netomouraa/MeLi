@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+// MARK: - Image Carousel View
 struct ImageCarouselView: View {
     let imageUrls: [String]
     var body: some View {

@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+// MARK: - Loading View
 struct LoadingView: View {
     var body: some View {
         ProgressView("Cargando...")

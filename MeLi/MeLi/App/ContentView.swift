@@ -7,7 +7,7 @@
 import SwiftUI
 import Combine
 
-// MARK: - 1. Content View
+// MARK: - Content View
 struct ContentView: View {
     @StateObject private var searchViewModel = SearchViewModel()
     

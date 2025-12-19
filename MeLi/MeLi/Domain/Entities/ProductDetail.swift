@@ -7,6 +7,7 @@
 
 import Foundation
 
+// MARK: - Product Catalog Detail
 struct ProductCatalogDetail: Codable {
     let id: String
     let status: String
@@ -30,6 +31,7 @@ struct ProductCatalogDetail: Codable {
 
 }
 
+// MARK: - Product Picture
 struct ProductPicture: Codable, Identifiable {
     let id: String
     let url: String
@@ -46,6 +48,7 @@ struct ProductPicture: Codable, Identifiable {
     }
 }
 
+// MARK: - Product Detail
 struct ProductDetail: Codable {
     let price: Double?
     let condition: String?
@@ -58,6 +61,7 @@ struct ProductDetail: Codable {
     }
 }
 
+// MARK: - Product Description
 struct ProductDescription: Codable {
     let plainText: String?
     
